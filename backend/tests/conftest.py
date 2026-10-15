@@ -1,7 +1,6 @@
 from collections.abc import Generator
 import pytest
 from sqlalchemy import create_engine, event
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
@@ -9,6 +8,9 @@ from fastapi.testclient import TestClient
 from app.database import Base, get_db
 from app.main import app
 from app.seed import init_db_and_seed
+
+# Disable production database initialization during tests
+app.state.skip_startup_init = True
 
 # In-memory SQLite with StaticPool enables multi-connection sharing and isolation per test run
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -37,9 +39,8 @@ TestingSessionLocal = sessionmaker(
 @pytest.fixture(scope="function")
 def db_session() -> Generator[Session, None, None]:
     """Provide a fresh, clean database session with seeded demo accounts for each test."""
-    Base.metadata.create_all(bind=test_engine)
     session = TestingSessionLocal()
-    init_db_and_seed(session)
+    init_db_and_seed(session, bind=test_engine)
     try:
         yield session
     finally:

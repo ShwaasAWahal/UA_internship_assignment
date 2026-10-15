@@ -1,7 +1,10 @@
 import logging
+from typing import Optional
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
-from app.database import Base, engine
+from app.database import Base
+from app.migration import migrate_sqlite_schema
 from app.models import User
 
 logger = logging.getLogger(__name__)
@@ -28,15 +31,21 @@ ALLOWED_DEMO_USER_IDS: set[str] = set(DEMO_USERS.keys())
 DEFAULT_DEMO_USER_ID: str = "demo-user-alice"
 
 
-def init_db_and_seed(db: Session) -> None:
+def init_db_and_seed(db: Session, bind: Optional[Engine] = None) -> None:
     """Initialize database tables and seed predictable demo accounts without wiping existing data.
 
     This function is idempotent. It ensures that schema tables are created if missing,
+    applies SQLite check-constraint migrations to existing tables non-destructively,
     and inserts demo user records if they do not already exist. It does NOT delete
     or overwrite existing issues, history, or user data.
     """
+    target_bind = bind or db.get_bind()
+
+    # Apply safe SQLite table migrations if existing tables lack check constraints
+    migrate_sqlite_schema(target_bind)
+
     # Create tables if not present
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=target_bind)
 
     # Seed demo users if missing
     for user_id, user_data in DEMO_USERS.items():

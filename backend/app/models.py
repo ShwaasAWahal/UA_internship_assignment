@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import enum
 from typing import Any
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -124,6 +125,22 @@ class Issue(Base):
         Index("ix_issues_severity", "severity"),
         Index("ix_issues_owner_status_created", "owner_id", "status", "created_at"),
         Index("ix_issues_owner_severity_created", "owner_id", "severity", "created_at"),
+        CheckConstraint(
+            "severity IN ('Minor', 'Moderate', 'Serious', 'Critical')",
+            name="ck_issues_severity",
+        ),
+        CheckConstraint(
+            "status IN ('Open', 'In Progress', 'Resolved')",
+            name="ck_issues_status",
+        ),
+        CheckConstraint(
+            "version >= 1",
+            name="ck_issues_version",
+        ),
+        CheckConstraint(
+            "length(trim(title)) > 0",
+            name="ck_issues_title_not_blank",
+        ),
     )
 
     def __repr__(self) -> str:
@@ -157,6 +174,14 @@ class IssueStatusHistory(Base):
 
     __table_args__ = (
         Index("ix_history_issue_changed_at", "issue_id", "changed_at"),
+        CheckConstraint(
+            "previous_status IN ('Open', 'In Progress', 'Resolved')",
+            name="ck_history_previous_status",
+        ),
+        CheckConstraint(
+            "new_status IN ('Open', 'In Progress', 'Resolved')",
+            name="ck_history_new_status",
+        ),
     )
 
     def __repr__(self) -> str:
