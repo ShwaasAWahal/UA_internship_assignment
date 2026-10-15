@@ -1,0 +1,25 @@
+{
+  "name": "ua-issue-tracker-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test:a11y": "node scripts/run-axe.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "axe-core": "^4.14.0",
+    "jsdom": "^28.1.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.1"
+  }
+}
