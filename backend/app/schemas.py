@@ -84,7 +84,8 @@ class IssueBase(BaseModel):
 
 class IssueCreate(IssueBase):
     """Payload to create a new accessibility issue."""
-    pass
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class IssueUpdate(BaseModel):
@@ -96,6 +97,8 @@ class IssueUpdate(BaseModel):
     wcag_criterion: Optional[str] = Field(None, max_length=100)
     severity: Optional[SeverityEnum] = None
     version: int = Field(..., description="Expected issue version for concurrency control")
+
+    model_config = ConfigDict(extra="forbid")
 
     @field_validator("title")
     @classmethod
@@ -122,6 +125,8 @@ class IssueStatusUpdate(BaseModel):
     version: int = Field(..., description="Current version of the issue")
     comment: Optional[str] = Field(None, description="Optional transition comment")
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class IssueResponse(BaseModel):
     """Representation of an issue returned to the client."""
@@ -138,6 +143,17 @@ class IssueResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     status_history: Optional[list[IssueStatusHistoryResponse]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedIssuesResponse(BaseModel):
+    """Paginated collection of issues for the current authorized scope."""
+
+    items: list[IssueResponse]
+    total: int
+    limit: int
+    offset: int
 
     model_config = ConfigDict(from_attributes=True)
 

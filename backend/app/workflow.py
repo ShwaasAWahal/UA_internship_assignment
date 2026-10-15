@@ -39,9 +39,15 @@ def validate_status_transition(current_status: str, target_status: str) -> None:
 
     allowed = ALLOWED_TRANSITIONS.get(current_status, set())
     if target_status not in allowed:
+        if current_status == StatusEnum.RESOLVED.value and target_status == StatusEnum.IN_PROGRESS.value:
+            msg = "An issue cannot move from Resolved directly to In Progress. Please reopen the issue to Open first."
+        else:
+            msg = (
+                f"An issue cannot move from '{current_status}' directly to '{target_status}'. "
+                f"Allowed transitions from '{current_status}': {', '.join(sorted(allowed)) or 'None'}."
+            )
         raise InvalidStatusTransitionError(
             current_status,
             target_status,
-            f"An issue cannot move from '{current_status}' directly to '{target_status}'. "
-            f"Allowed transitions from '{current_status}': {', '.join(sorted(allowed)) or 'None'}.",
+            msg,
         )

@@ -122,6 +122,8 @@ class Issue(Base):
         Index("ix_issues_owner_created", "owner_id", "created_at"),
         Index("ix_issues_status_created", "status", "created_at"),
         Index("ix_issues_severity", "severity"),
+        Index("ix_issues_owner_status_created", "owner_id", "status", "created_at"),
+        Index("ix_issues_owner_severity_created", "owner_id", "severity", "created_at"),
     )
 
     def __repr__(self) -> str:

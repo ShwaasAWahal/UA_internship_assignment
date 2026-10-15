@@ -7,8 +7,13 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import SessionLocal
-from app.routers import health, users
+import logging
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.routers import health, issues, users
 from app.seed import init_db_and_seed
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -64,7 +69,7 @@ async def validation_exception_handler(
         field_errors[field_name] = msg
 
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422),
         content={
             "error": {
                 "code": "VALIDATION_ERROR",
@@ -97,6 +102,22 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     return JSONResponse(status_code=exc.status_code, content=payload)
 
 
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+    """Ensure internal database errors are logged without exposing stack traces or SQL details."""
+    logger.error("Database operation failed: %s", exc)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": {
+                "code": "DATABASE_ERROR",
+                "message": "A database error occurred while processing your request. Please try again.",
+            }
+        },
+    )
+
+
 # Mount routers
 app.include_router(health.router)
 app.include_router(users.router)
+app.include_router(issues.router)
