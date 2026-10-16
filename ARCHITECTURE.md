@@ -128,6 +128,18 @@ Use semantic HTML, visible labels, native buttons/selects/inputs, a skip link, o
 
 Production-only components are justified by scale, security, and asynchronous side effects. They are not required in the local implementation unless needed for a core feature.
 
-## 9. Diagramming tool
+## 9. Technology choices and trade-offs
 
-The diagrams were created using **diagrams.net (draw.io)**. The editable source file is `unified_accessibility_architecture.drawio`.
+| Layer | Selected technology | Alternative considered | Trade-offs & rationale |
+|---|---|---|---|
+| **Backend API** | **FastAPI (Python 3.12)** | Django REST Framework (DRF) or Node.js / Express | Django/DRF provides an out-of-the-box admin UI and ORM, but brings significant monolithic weight, rigid session defaults, and slower synchronous execution. Express.js is lightweight but requires stitching together separate validation (Zod/Joi) and ORM libraries without native OpenAPI generation. **FastAPI** was chosen for its native async performance, robust type validation via Pydantic, automatic interactive OpenAPI documentation (`/api/docs`), and clean dependency injection for identity and database scoping. |
+| **Frontend** | **React 18 + TypeScript + Vite** | Next.js (SSR) or Vanilla TypeScript | Next.js introduces server runtime dependencies, edge complexity, and deployment overhead that are unjustified for an authenticated audit application where public SEO is unnecessary. Vanilla TypeScript avoids library dependencies but requires hand-crafting DOM reconciliation and accessible focus management primitives. **React + TypeScript + Vite** provides instant HMR, declarative accessible component hierarchy, strict compile-time type safety, and a compact static bundle that can be hosted on any CDN or static storage layer. |
+| **Database** | **SQLite (Local) / PostgreSQL (Prod)** | MongoDB (Document) or DynamoDB (NoSQL) | Document/NoSQL databases offer flexible schemaless ingestion, but lack strict multi-table referential integrity (`RESTRICT` foreign keys), atomic multi-table transactions (critical for committing an issue update and its append-only history record together), and standard relational indexing. **SQLite** was chosen for local development because it is serverless, zero-configuration, and file-persisted across restarts. **PostgreSQL** is specified for production to support row-level locking, high-volume concurrent writers across 500 teams, connection pooling, and point-in-time recovery. |
+
+## 10. Diagramming tool
+
+The architecture and workflow diagrams were authored and exported using **diagrams.net (draw.io)**. High-resolution exported images are embedded directly within this document:
+- System Architecture: [`docs/architecture.png`](docs/architecture.png)
+- Entity-Relationship Model: [`docs/er-diagram.png`](docs/er-diagram.png)
+- Issue Status Workflow: [`docs/status-workflow.png`](docs/status-workflow.png)
+

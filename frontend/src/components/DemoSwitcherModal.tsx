@@ -11,16 +11,16 @@ interface DemoSwitcherModalProps {
 export const DEMO_ACCOUNTS = [
   {
     id: "demo-user-alice",
-    name: "Alice Chen",
-    role: "Accessibility Auditor",
-    email: "alice@example.com",
+    name: "Alice Chen (Lead Auditor)",
+    role: "Lead Auditor",
+    email: "alice@unifiedaccessibility.demo",
     description: "Primary auditor account with seeded accessibility issues.",
   },
   {
     id: "demo-user-bob",
-    name: "Bob Martinez",
-    role: "Accessibility Auditor",
-    email: "bob@example.com",
+    name: "Bob Martinez (Auditor)",
+    role: "Auditor",
+    email: "bob@unifiedaccessibility.demo",
     description: "Colleague auditor account for testing multi-user isolation.",
   },
 ];

@@ -12,6 +12,7 @@ Built for the **Unified Accessibility Full-Stack Intern Take-Home Assignment**.
 - [Technology Stack](#technology-stack)
 - [Architecture & Design Principles](#architecture--design-principles)
 - [Demo Sign-In Mechanism](#demo-sign-in-mechanism)
+- [Database Persistence & Migrations](#database-persistence--migrations)
 - [Project Structure](#project-structure)
 - [Quick Start & Setup Instructions](#quick-start--setup-instructions)
   - [Backend Setup](#backend-setup)
@@ -20,6 +21,7 @@ Built for the **Unified Accessibility Full-Stack Intern Take-Home Assignment**.
 - [API Reference](#api-reference)
 - [Status Workflow & Concurrency](#status-workflow--concurrency)
 - [Accessibility Compliance](#accessibility-compliance)
+- [Known Limitations](#known-limitations)
 - [AI Tooling Disclosure](#ai-tooling-disclosure)
 
 ---
@@ -63,8 +65,8 @@ The project strictly follows the architecture documented in [`ARCHITECTURE.md`](
 > **Important Demonstration Notice**: The sign-in mechanism is provided strictly for local evaluation and testing of user isolation. It is **not** a production authentication system.
 
 - Two demo users are seeded predictably on startup:
-  - **Alice Chen** (`demo-user-alice`) — `alice@example.com` (Accessibility Auditor)
-  - **Bob Martinez** (`demo-user-bob`) — `bob@example.com` (Accessibility Auditor)
+  - **Alice Chen** (`demo-user-alice`) — `alice@unifiedaccessibility.demo` (Lead Auditor)
+  - **Bob Martinez** (`demo-user-bob`) — `bob@unifiedaccessibility.demo` (Auditor)
 - The frontend stores the selected user ID in `localStorage` under `ua_demo_user_id` (defaulting to `demo-user-alice`).
 - Every API request transmits the identity via the custom request header:
   ```http
@@ -72,6 +74,15 @@ The project strictly follows the architecture documented in [`ARCHITECTURE.md`](
   ```
 - The backend verifies this identity against an explicit whitelist of known demo users. Requests without this header or with an unrecognized user ID return `401 Unauthorized`.
 - Clients are forbidden from supplying arbitrary owner IDs in request bodies; ownership is always resolved server-side from the verified demo identity.
+
+---
+
+## Database Persistence & Migrations
+
+- **Local SQLite File Storage**: All application data is persisted to a local SQLite database at `backend/issues.db` (configurable via the `DATABASE_URL` environment variable). Data remains fully intact across application restarts.
+- **Automatic Seed Ingestion**: On application startup, `backend/app/seed.py` creates tables and seeds the demo auditor profiles only if they are missing; it never deletes or truncates existing issue and status history rows.
+- **Non-Destructive Table Rebuild Migrations**: In compliance with SQLite architectural constraints, `backend/app/migration.py` inspects the table schema for missing `CheckConstraint`s. If an older or partial schema is detected, it executes an atomic table rebuild migration (copying data to temporary tables, dropping old tables, recreating constraint-enforced tables, and restoring all records) without data loss.
+- **Isolated Testing Database**: Automated backend tests run exclusively against in-memory or temporary test databases (`sqlite:///:memory:`). Running tests will never overwrite or mutate your runtime `backend/issues.db`.
 
 ---
 
@@ -196,22 +207,45 @@ UA_internship_assignment/
 
 ## Running Automated Tests
 
-### Backend Test Suite
-The backend includes a comprehensive automated test suite covering model persistence, foreign keys, demo identity validation, API validation, status workflow transitions, optimistic concurrency conflicts, SQLite table migrations, and error sanitization.
-
-To execute the complete test suite:
+### 1. Backend Test Suite
+The backend includes an automated test suite covering model persistence, foreign keys, demo identity validation, API validation, status workflow transitions, optimistic concurrency conflicts, SQLite table migrations, and error sanitization.
 ```bash
-# From the repository root (or backend directory)
+# From the repository root
 backend\.venv\Scripts\pytest -v backend/tests
 ```
 Expected output:
 ```text
-============================= 28 passed in 1.57s ==============================
+============================= 28 passed in 1.87s ==============================
+```
+> **Test Database Isolation**: Tests run against an isolated in-memory SQLite database (`sqlite:///:memory:`). Running tests will never overwrite or mutate your runtime `backend/issues.db`.
+
+### 2. End-to-End Integration Suite (12 Live Workflows)
+To verify server startup, issue creation, backend restart persistence, edit timestamps, status transitions, history ordering, disallowed transitions, User B isolation, input validation, and concurrency conflicts over live HTTP sockets:
+```bash
+# From the repository root
+backend\.venv\Scripts\python.exe scripts/e2e_integration_test.py
+```
+Expected output:
+```text
+=====================================================================
+  ALL 36 WORKFLOW CHECKS PASSED SUCCESSFULLY!
+=====================================================================
 ```
 
-> **Test Database Isolation**: Tests run against a dedicated in-memory or temporary SQLite database (`sqlite:///:memory:`) using isolated test fixtures. Running tests will never overwrite or mutate the application's runtime `issues.db`.
+### 3. Automated WCAG 2.2 AA Accessibility Audit
+Automated checks execute the official Deque `axe-core` ruleset across all 4 primary application screens (List, Form, Detail, Switcher Modal):
+```bash
+cd frontend
+npm run test:a11y
+```
+Expected output:
+```text
+=================================================
+TOTAL AXE VIOLATIONS ACROSS ALL SCREENS: 0
+=================================================
+```
 
-### Frontend Build Verification
+### 4. Frontend Production Build Verification
 To verify TypeScript compilation and asset bundling:
 ```bash
 cd frontend
@@ -220,7 +254,7 @@ npm run build
 Output:
 ```text
 ✓ 37 modules transformed.
-✓ built in 1.36s
+✓ built in 2.80s
 ```
 
 ---
@@ -298,6 +332,26 @@ The frontend was constructed with an accessibility-first methodology, meeting **
 - **Responsive & Zoom**: Fully responsive down to 320px viewport width and supports 200% browser text scaling without horizontal clipping.
 
 For in-depth analysis, keyboard navigation flows, and audit matrices, refer to [`ACCESSIBILITY.md`](ACCESSIBILITY.md).
+
+## Known Limitations
+
+1. **Local Demo Identity Mechanism vs. Production Authentication**:
+   - The application utilizes a lightweight `X-Demo-User-Id` request header (defaulting to Alice Chen: `demo-user-alice`) rather than production-grade OAuth2/OpenID Connect (OIDC) or signed JWT bearer tokens.
+   - This local demonstration mechanism enables zero-configuration evaluation without requiring external Identity Providers (IdP) like Auth0 or Keycloak.
+   - As architected in [`ARCHITECTURE.md`](ARCHITECTURE.md), production deployments must replace this demo switcher with OIDC single sign-on, server-side session cookies or cryptographic token verification middleware, and role-based access control (RBAC).
+
+2. **SQLite Single-Writer Concurrency**:
+   - The local database utilizes SQLite (`backend/issues.db`) configured with Write-Ahead Logging (`WAL`) and strict foreign key checks (`PRAGMA foreign_keys = ON;`).
+   - SQLite provides zero-dependency local persistence across server restarts and handles concurrent reads efficiently. However, write transactions serialize on a single-writer lock.
+   - In production serving 500 teams and burst workloads of hundreds of writes per minute, PostgreSQL with row-level locking (`SELECT ... FOR UPDATE`), read replicas, and connection pooling (PgBouncer) is required.
+
+3. **In-Process Task Execution**:
+   - Audit history creation is committed atomically within the same database transaction as the status update.
+   - For heavy background processing (such as automated screenshot rendering/OCR or high-volume email dispatch on `Critical` issues), a distributed task queue (e.g., Celery, ARQ, or Redis Streams) with durable retries and dead-letter queues should be deployed in production.
+
+4. **Screen Reader Testing Scope**:
+   - Automated accessibility testing was performed using the official Deque `axe-core` 4.14 engine (0 violations across all 4 views), alongside full keyboard navigation audits (`Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape`), visible focus outline verification, and programmatic ARIA live region checks.
+   - While manual testing confirmed proper DOM structure, semantic roles, and live region emissions according to the W3C WAI-ARIA Authoring Practices Guide (APG), exhaustive physical screen reader testing across every commercial combination (JAWS on Windows, NVDA on Windows, VoiceOver on macOS/iOS, TalkBack on Android) should be conducted with native screen reader users in formal UAT.
 
 ---
 
