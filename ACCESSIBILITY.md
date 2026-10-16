@@ -1,22 +1,25 @@
-# Accessibility Conformance Report & Audit (WCAG 2.2 Level AA)
+# Accessibility Evaluation & Conformance Notes (Targeting WCAG 2.2 Level AA)
 
 ## 1. Executive Summary
 
-A dedicated, rigorous accessibility audit of the **Unified Accessibility Issue Tracker** frontend was conducted targeting **WCAG 2.2 Level AA** compliance.
+An accessibility evaluation of the **Unified Accessibility Issue Tracker** frontend was conducted targeting **WCAG 2.2 Level AA** standards.
 
-The audit combined:
-1. **Automated Auditing**: Official Deque **`axe-core`** engine (v4.14.0) executing the full `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`, and `best-practice` rulesets across all application screens.
-2. **Mathematical Color Contrast Verification**: Formulaic verification of relative luminance ($L_1, L_2$) for all text and non-text UI boundaries.
-3. **Manual Keyboard & Focus Navigation Auditing**: End-to-end traversal of all interactive workflows using only the keyboard (`Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape`).
-4. **Reflow & Zoom Verification**: Responsive layout testing at **320px CSS viewport width** and **200% browser zoom**.
+The evaluation used a layered approach:
+1. **Automated Auditing on Static Fixtures**: Deque **`axe-core`** (v4.14.0) executed rules for `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`, and `best-practice` against representative static HTML fixtures of the four primary application views in a JSDOM environment (`npm run test:a11y`).
+2. **Formulaic Color Contrast Verification**: Mathematical evaluation of foreground and background color tokens using WCAG 2.1 relative luminance formulas ($L_1, L_2$) for all text and UI component borders.
+3. **Source Code & Semantic Inspection**: Code-level verification of semantic HTML markup, heading hierarchy, bypass links, form control labeling, error associations (`aria-describedby`, `aria-invalid`), modal focus management, and status announcement live regions.
+4. **Interactive Keyboard Traversal**: Manual verification of focus order, visible focus rings, tab navigation, and modal dismissal (`Escape`) in a desktop browser.
 
-Automated axe-core checks confirm **0 violations across all application screens**. Confirmed issues identified during the audit were remediated directly in source code.
+### Key Audit Findings & Scope
+- **Automated Fixture Audit**: Automated `axe-core` testing of the static fixtures reported **0 violations**. However, this result applies to static DOM representations and does **not** establish full WCAG 2.2 AA conformance for the live dynamic application.
+- **Incomplete Checks & JSDOM Limitations**: The automated check reported **13 incomplete checks** across the four screens (e.g., color contrast rules where computed CSS background colors cannot be fully evaluated in headless JSDOM without a full browser layout engine, accompanied by a JSDOM canvas context warning). These incomplete checks require manual evaluation.
+- **Remediated Issues**: Eight confirmed accessibility defects identified during code inspection and testing were remediated directly in source code (detailed in Section 4).
 
 ---
 
-## 2. Audit Scope & Workflows Tested
+## 2. Audit Scope & Workflows Evaluated
 
-The audit evaluated every primary screen and interactive user workflow:
+The evaluation covered every primary screen and interactive user workflow:
 
 1. **Top Navigation & Demo Account Switcher**:
    - Skip to main content bypass link.
@@ -40,15 +43,16 @@ The audit evaluated every primary screen and interactive user workflow:
 
 ---
 
-## 3. Tools Used
+## 3. Evaluation Methodology & Tools Used
 
-- **Automated Engine**: `axe-core` 4.14.0 integrated with JSDOM runner (`npm run test:a11y`).
-- **Contrast Calculator**: Node.js script evaluating WCAG 2.1 relative luminance:
+- **Automated Engine**: `axe-core` 4.14.0 executed within a Node.js / JSDOM harness (`npm run test:a11y`) evaluating representative static HTML fixtures.
+  > **JSDOM Limitations**: JSDOM does not implement a layout or rendering engine, nor does it support `HTMLCanvasElement.getContext()`. As a result, certain visual checks (such as color contrast on layered backgrounds) cannot be fully resolved by automated tooling in JSDOM and are flagged as "incomplete" (13 across the suite). Automated fixture checks provide a valuable automated regression safeguard for HTML/ARIA semantics, but cannot replace live browser audits.
+- **Contrast Calculations**: Formulaic relative luminance verification for all design palette tokens:
   $$\text{Contrast Ratio} = \frac{\max(L_1, L_2) + 0.05}{\min(L_1, L_2) + 0.05}$$
-- **Keyboard Navigation**: Chromium / Edge keyboard focus traversal and tab order audit.
-- **Responsive Inspection**: Viewport scaled down to 320px width and browser zoomed to 200%.
+- **Keyboard Navigation Verification**: Desktop browser inspection verifying that interactive elements receive visible focus outlines, follow logical tab order, and support keyboard operation (`Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape`).
+- **Layout & Zoom Inspection**: Responsive layout verification in a desktop browser at 320px viewport width and 200% text zoom.
 
-> **Screen Reader Testing Disclosure**: Automated tools and DOM tree inspections were verified directly. Full audio screen reader sessions were not simulated with physical screen reader software (e.g., NVDA, JAWS, VoiceOver); semantic markup and ARIA live regions were verified against W3C WAI-ARIA Authoring Practices Guide (APG) specifications.
+> **Screen Reader Disclosure**: Full end-to-end audio testing with native physical screen reader software (e.g. JAWS, NVDA on Windows; VoiceOver on macOS/iOS; TalkBack on Android) was not conducted. ARIA attributes, live regions (`role="status"`, `aria-live="polite"`), and accessible names were implemented and verified according to the W3C WAI-ARIA Authoring Practices Guide (APG), but full multi-platform assistive technology testing remains a requirement for formal production acceptance.
 
 ---
 
@@ -106,42 +110,47 @@ During the dedicated audit, 8 confirmed accessibility issues were identified and
 
 ---
 
-## 5. Automated axe-core Audit Results
+## 5. Automated axe-core Audit Results (Static Fixtures)
 
-Ran automated accessibility test suite via `npm run test:a11y`:
+The automated accessibility test script (`npm run test:a11y`) runs `axe-core` 4.14.0 against representative static HTML fixtures representing the four primary UI states.
+
 ```text
 =================================================
   ACCESSIBILITY AUDIT WITH AXE-CORE (WCAG 2.2 AA)
 =================================================
 
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
 --- PAGE AUDIT: 1. Issues List Screen ---
 Passed rules: 40
 Incomplete checks: 5
 Violations: 0
-  ✓ Zero violations found! Full WCAG 2.2 AA conformance.
 
 --- PAGE AUDIT: 2. Create Issue Form Screen ---
 Passed rules: 34
 Incomplete checks: 3
 Violations: 0
-  ✓ Zero violations found! Full WCAG 2.2 AA conformance.
 
 --- PAGE AUDIT: 3. Issue Detail Screen ---
 Passed rules: 38
 Incomplete checks: 3
 Violations: 0
-  ✓ Zero violations found! Full WCAG 2.2 AA conformance.
 
 --- PAGE AUDIT: 4. Demo Switcher Modal Dialog ---
 Passed rules: 28
 Incomplete checks: 2
 Violations: 0
-  ✓ Zero violations found! Full WCAG 2.2 AA conformance.
 
 =================================================
 TOTAL AXE VIOLATIONS ACROSS ALL SCREENS: 0
 =================================================
 ```
+
+### Analysis of Incomplete Checks & Scope Limitations
+1. **Zero Violations on Fixtures**: The 0 violations confirm that the static fixtures contain no automated rule violations regarding semantic tags, ARIA attributes, form labels, or landmark structure.
+2. **13 Incomplete Checks**: The 13 incomplete checks (5 on List, 3 on Form, 3 on Detail, 2 on Modal) primarily involve `color-contrast` where JSDOM cannot compute layout positioning or blended backgrounds. These were manually verified via formulaic color token evaluation (Section 6).
+3. **Canvas Limitation Warning**: JSDOM does not provide a canvas 2D context by default, producing the harmless notice `Not implemented: HTMLCanvasElement's getContext() method`.
+4. **Scope Limitation**: Zero violations on static fixtures does **not** prove full WCAG 2.2 Level AA compliance for the live React application, which involves dynamic state changes, client-side routing, and real-time user input.
 
 ---
 
@@ -179,8 +188,10 @@ All color combinations were verified using the WCAG relative luminance formula. 
 
 ---
 
-## 8. Known Remaining Limitations
+## 8. Remaining Limitations & Production Recommendations
 
-1. **Physical Screen Reader Diversity**: While the DOM tree and ARIA attributes strictly adhere to W3C WAI-ARIA 1.2 authoring patterns and axe-core passes with 0 violations, testing across diverse desktop and mobile screen readers (NVDA on Firefox, JAWS on Chrome, VoiceOver on iOS/macOS, TalkBack on Android) should be conducted in formal user acceptance testing.
-2. **High-Contrast OS Modes**: In Windows High Contrast Mode / Forced Colors Mode, custom borders and background colors may be overridden by the operating system palette. Future revisions can include targeted `@media (forced-colors: active)` rules to specify system canvas tokens.
-3. **Multi-Language Support**: All error messages, labels, and status announcements are currently in English (`lang="en"`). Production localization will require translated strings and bidirectional layout support (`dir="rtl"`).
+1. **Test Environment Scope (Static Fixtures vs. Live App)**: The automated `axe-core` test runs against static JSDOM fixtures rather than a live, rendered React application with real browser layout geometry. For continuous integration in production, automated accessibility checks should be integrated with Playwright or Cypress running axe-core in real Chromium, WebKit, and Firefox browsers.
+2. **Manual Review of Incomplete Checks**: The 13 automated checks flagged as "incomplete" by axe-core in JSDOM (primarily background contrast on layered elements) require ongoing manual inspection or headless browser rendering with computed styles.
+3. **Physical Screen Reader Diversity**: While semantic markup and ARIA live regions follow W3C APG guidelines, formal user acceptance testing must include native screen reader users using JAWS, NVDA, and VoiceOver across operating systems and browsers.
+4. **Operating System High-Contrast Modes**: In Windows High Contrast Mode / Forced Colors Mode, custom borders and background colors may be overridden by system palettes. Production styles should incorporate `@media (forced-colors: active)` overrides for custom focus rings and status chips.
+5. **Internationalization & Localization**: The interface currently supports English (`lang="en"`). Future iterations should include localized strings and bidirectional (`dir="rtl"`) text support.

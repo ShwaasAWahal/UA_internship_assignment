@@ -68,11 +68,12 @@ The project strictly follows the architecture documented in [`ARCHITECTURE.md`](
   - **Alice Chen** (`demo-user-alice`) — `alice@unifiedaccessibility.demo` (Lead Auditor)
   - **Bob Martinez** (`demo-user-bob`) — `bob@unifiedaccessibility.demo` (Auditor)
 - The frontend stores the selected user ID in `localStorage` under `ua_demo_user_id` (defaulting to `demo-user-alice`).
-- Every API request transmits the identity via the custom request header:
+- API requests transmit the demo identity via the custom request header:
   ```http
   X-Demo-User-Id: demo-user-alice
   ```
-- The backend verifies this identity against an explicit whitelist of known demo users. Requests without this header or with an unrecognized user ID return `401 Unauthorized`.
+- **Local Demo Fallback**: If the `X-Demo-User-Id` header is omitted (e.g., during direct browser exploration or raw curl requests), the local backend defaults the identity to Alice Chen (`demo-user-alice`). If an unrecognized user ID is provided (e.g. attempting to supply an arbitrary user), the request is rejected with `401 Unauthorized`.
+- **Demonstration Notice**: This header-based identity resolution is strictly a local demonstration mechanism for evaluating user data isolation without requiring third-party Identity Providers. In production, this would be replaced with secure session cookies or signed JWT bearer tokens from an OIDC provider.
 - Clients are forbidden from supplying arbitrary owner IDs in request bodies; ownership is always resolved server-side from the verified demo identity.
 
 ---
@@ -181,7 +182,7 @@ UA_internship_assignment/
    ```
    The backend will initialize the SQLite database (`issues.db`), seed the two demo users, and serve the API at `http://127.0.0.1:8000`.
    - Health check: `http://127.0.0.1:8000/health`
-   - Interactive OpenAPI docs: `http://127.0.0.1:8000/docs`
+   - Interactive OpenAPI docs: `http://127.0.0.1:8000/api/docs`
 
 ### Frontend Setup
 
@@ -232,8 +233,8 @@ Expected output:
 =====================================================================
 ```
 
-### 3. Automated WCAG 2.2 AA Accessibility Audit
-Automated checks execute the official Deque `axe-core` ruleset across all 4 primary application screens (List, Form, Detail, Switcher Modal):
+### 3. Automated Accessibility Evaluation (Static Fixtures)
+Automated checks execute the official Deque `axe-core` ruleset against representative static HTML fixtures for all 4 primary application screens (List, Form, Detail, Switcher Modal) inside a JSDOM environment:
 ```bash
 cd frontend
 npm run test:a11y
@@ -244,6 +245,7 @@ Expected output:
 TOTAL AXE VIOLATIONS ACROSS ALL SCREENS: 0
 =================================================
 ```
+> **Audit Scope & Limitations**: The automated test verifies that representative static fixtures conform to HTML and ARIA structural rules with **0 violations**. However, headless JSDOM does not render full CSS geometry or canvas graphics (reporting 13 incomplete checks, such as color contrast calculations). Automated tests do not establish full WCAG 2.2 AA conformance for the live dynamic application. For detailed evaluation methodology and manual check notes, see [`ACCESSIBILITY.md`](ACCESSIBILITY.md).
 
 ### 4. Frontend Production Build Verification
 To verify TypeScript compilation and asset bundling:
@@ -261,10 +263,10 @@ Output:
 
 ## API Reference
 
-All requests must include the header `X-Demo-User-Id: demo-user-alice` (or `demo-user-bob`).
+Requests can specify the demo identity using the header `X-Demo-User-Id: demo-user-alice` (or `demo-user-bob`). If omitted, the local backend defaults to `demo-user-alice` (Alice Chen). Requests with an unrecognized user ID return `401 Unauthorized`.
 
 ### 1. User Endpoints
-- `GET /api/me`: Returns the current authenticated demo user profile.
+- `GET /api/me`: Returns the current demo user profile.
 - `GET /api/users/demo`: Returns the list of predictable demo auditor accounts.
 
 ### 2. Issue Endpoints
@@ -275,7 +277,12 @@ All requests must include the header `X-Demo-User-Id: demo-user-alice` (or `demo
     - `limit`: Bounded page size (1 to 100, default 20).
     - `offset`: Pagination offset (default 0).
 - `POST /api/issues`: Create an issue. Status defaults to `Open`.
-  - Body: `{ "title": "...", "page_url": "https://...", "severity": "Serious", "wcag_criterion": "...", "description": "..." }`
+  - Body fields:
+    - `title` (required, non-blank string): Concise title of the accessibility issue.
+    - `page_url` (required, HTTP or HTTPS URL): Address of the page where the issue was observed.
+    - `severity` (required): One of `Minor`, `Moderate`, `Serious`, or `Critical`.
+    - `wcag_criterion` (optional string): Relevant WCAG Success Criterion (e.g. "1.4.3 Contrast (Minimum)").
+    - `description` (optional string): Detailed reproduction steps and remediation notes.
 - `GET /api/issues/{id}`: Retrieve issue details and complete status history timeline.
 - `PATCH /api/issues/{id}`: Edit permitted fields (`title`, `description`, `page_url`, `wcag_criterion`, `severity`). Requires `version`. (Directly modifying `status` or `owner_id` is forbidden).
 - `PATCH /api/issues/{id}/status`: Transition status.
@@ -323,8 +330,8 @@ When updating an issue or changing its status, the client must submit the curren
 
 ## Accessibility Compliance
 
-The frontend was constructed with an accessibility-first methodology, meeting **WCAG 2.2 Level AA**:
-- **Contrast**: Text elements maintain >= 4.5:1 contrast against backgrounds (body text is #0f172a on white, 15.6:1). All UI controls and borders exceed 3:1.
+The frontend was constructed with an accessibility-first methodology, targeting **WCAG 2.2 Level AA**:
+- **Contrast**: Text elements maintain >= 4.5:1 contrast against backgrounds (body text is #0f172a on white, 17.85:1). All UI controls and borders exceed 3:1.
 - **Focus Indicators**: Unambiguous 3px solid high-contrast focus outlines with offset on all interactive elements.
 - **Bypass Blocks**: Top-level skip link jumping directly to `<main id="main-content">`.
 - **Screen Reader Announcements**: Success and status notifications post to a persistent `aria-live="polite"` region without stealing keyboard focus.
@@ -340,17 +347,17 @@ For in-depth analysis, keyboard navigation flows, and audit matrices, refer to [
    - This local demonstration mechanism enables zero-configuration evaluation without requiring external Identity Providers (IdP) like Auth0 or Keycloak.
    - As architected in [`ARCHITECTURE.md`](ARCHITECTURE.md), production deployments must replace this demo switcher with OIDC single sign-on, server-side session cookies or cryptographic token verification middleware, and role-based access control (RBAC).
 
-2. **SQLite Single-Writer Concurrency**:
-   - The local database utilizes SQLite (`backend/issues.db`) configured with Write-Ahead Logging (`WAL`) and strict foreign key checks (`PRAGMA foreign_keys = ON;`).
-   - SQLite provides zero-dependency local persistence across server restarts and handles concurrent reads efficiently. However, write transactions serialize on a single-writer lock.
-   - In production serving 500 teams and burst workloads of hundreds of writes per minute, PostgreSQL with row-level locking (`SELECT ... FOR UPDATE`), read replicas, and connection pooling (PgBouncer) is required.
+2. **SQLite Single-Writer Concurrency & Journal Mode**:
+   - The local database utilizes SQLite (`backend/issues.db`) with foreign key enforcement enabled on connection (`PRAGMA foreign_keys = ON;`). Standard rollback journaling is used locally without Write-Ahead Logging (`WAL`).
+   - SQLite provides zero-dependency local persistence across server restarts and handles lightweight local access well. However, concurrent writes serialize on a database-level lock.
+   - For high-concurrency production deployments serving 500 teams and burst workloads of hundreds of writes per minute, a managed relational database such as PostgreSQL with row-level locking (`SELECT ... FOR UPDATE`), read replicas, and connection pooling (PgBouncer) is required (as architected in [`ARCHITECTURE.md`](ARCHITECTURE.md)).
 
 3. **In-Process Task Execution**:
    - Audit history creation is committed atomically within the same database transaction as the status update.
    - For heavy background processing (such as automated screenshot rendering/OCR or high-volume email dispatch on `Critical` issues), a distributed task queue (e.g., Celery, ARQ, or Redis Streams) with durable retries and dead-letter queues should be deployed in production.
 
-4. **Screen Reader Testing Scope**:
-   - Automated accessibility testing was performed using the official Deque `axe-core` 4.14 engine (0 violations across all 4 views), alongside full keyboard navigation audits (`Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape`), visible focus outline verification, and programmatic ARIA live region checks.
+4. **Screen Reader & Test Fixture Scope**:
+   - Automated accessibility testing was performed using the official Deque `axe-core` 4.14 engine against representative static HTML fixtures (reporting 0 violations on tested fixtures and 13 incomplete checks requiring manual evaluation).
    - While manual testing confirmed proper DOM structure, semantic roles, and live region emissions according to the W3C WAI-ARIA Authoring Practices Guide (APG), exhaustive physical screen reader testing across every commercial combination (JAWS on Windows, NVDA on Windows, VoiceOver on macOS/iOS, TalkBack on Android) should be conducted with native screen reader users in formal UAT.
 
 ---
