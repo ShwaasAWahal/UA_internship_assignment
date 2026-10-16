@@ -54,7 +54,7 @@ async function runAuditOnPage(pageName, bodyHtml) {
       });
     });
   } else {
-    console.log("  ✓ Zero violations found! Full WCAG 2.2 AA conformance.");
+    console.log("  ✓ Automated axe checks passed: zero violations detected in the static JSDOM fixtures. This does not establish full WCAG 2.2 AA conformance.");
   }
 
   return results.violations;
